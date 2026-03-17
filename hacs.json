@@ -2,5 +2,5 @@
   "name": "DB Infoscreen Card",
   "content_in_root": false,
   "render_readme": true,
-  "filename": "dist/db-infoscreen-card.js"
+  "filename": "db-infoscreen-card.js"
 }
