@@ -17,7 +17,13 @@ class DBInfoscreenCard extends HTMLElement {
 
     this._card.appendChild(this._titleEl);
     this._card.appendChild(this._contentEl);
-    this.appendChild(this._card);
+  }
+
+  connectedCallback() {
+    if (!this._card.parentNode) {
+      this.appendChild(this._card);
+    }
+    if (this._hass && this.config) this.render();
   }
 
   setConfig(config) {
