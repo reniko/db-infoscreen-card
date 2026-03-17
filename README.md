@@ -52,7 +52,7 @@ Type: module
 ```yaml
 type: custom:db-infoscreen-card
 entity: sensor.db_infoscreen_xyz_departures
-title: Tropfsteinweg
+title: XYZ
 ```
 
 ---
