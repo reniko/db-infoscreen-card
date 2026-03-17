@@ -281,7 +281,9 @@ class DBInfoscreenCard extends HTMLElement {
   }
 }
 
-customElements.define("db-infoscreen-card", DBInfoscreenCard);
+if (!customElements.get("db-infoscreen-card")) {
+  customElements.define("db-infoscreen-card", DBInfoscreenCard);
+}
 
 window.customCards = window.customCards || [];
 window.customCards.push({
