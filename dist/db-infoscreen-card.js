@@ -16,7 +16,6 @@ class DBInfoscreenCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this.render();
   }
 
   render() {
