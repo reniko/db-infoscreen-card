@@ -147,6 +147,10 @@ class DBInfoscreenCard extends HTMLElement {
     };
   }
 
+  static get editorTagName() {
+    return "db-infoscreen-card-editor";
+  }
+  
   static getStubConfig() {
     return {
       entity: "",
@@ -279,6 +283,16 @@ class DBInfoscreenCard extends HTMLElement {
       },
     };
   }
+}
+
+class DBInfoscreenCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config;
+  }
+}
+
+if (!customElements.get("db-infoscreen-card-editor")) {
+  customElements.define("db-infoscreen-card-editor", DBInfoscreenCardEditor);
 }
 
 if (!customElements.get("db-infoscreen-card")) {
