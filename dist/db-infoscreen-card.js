@@ -147,10 +147,10 @@ class DBInfoscreenCard extends HTMLElement {
     };
   }
 
-  static get editorTagName() {
-    return "db-infoscreen-card-editor";
+  static getConfigElement() {
+    return document.createElement("db-infoscreen-card-editor");
   }
-  
+
   static getStubConfig() {
     return {
       entity: "",
@@ -163,138 +163,137 @@ class DBInfoscreenCard extends HTMLElement {
       filter_directions: "",
     };
   }
-
-  static getConfigForm() {
-    return {
-      schema: [
-        {
-          name: "entity",
-          required: true,
-          selector: {
-            entity: {
-              domain: "sensor",
-            },
-          },
-        },
-        {
-          name: "title",
-          selector: {
-            text: {},
-          },
-        },
-        {
-          type: "grid",
-          name: "",
-          flatten: true,
-          schema: [
-            {
-              name: "walking_time",
-              selector: {
-                number: {
-                  min: 0,
-                  max: 30,
-                  mode: "box",
-                  step: 1,
-                },
-              },
-            },
-            {
-              name: "group_mode",
-              selector: {
-                select: {
-                  mode: "dropdown",
-                  options: [
-                    { value: "line_direction", label: "Line + Direction" },
-                    { value: "time", label: "Chronological" },
-                  ],
-                },
-              },
-            },
-            {
-              name: "max_per_group",
-              selector: {
-                number: {
-                  min: 1,
-                  max: 20,
-                  mode: "box",
-                  step: 1,
-                },
-              },
-            },
-            {
-              name: "max_items_time",
-              selector: {
-                number: {
-                  min: 1,
-                  max: 20,
-                  mode: "box",
-                  step: 1,
-                },
-              },
-            },
-          ],
-        },
-        {
-          type: "expandable",
-          name: "filters",
-          title: "Filter",
-          flatten: true,
-          schema: [
-            {
-              name: "filter_lines",
-              selector: {
-                text: {},
-              },
-            },
-            {
-              name: "filter_directions",
-              selector: {
-                text: {},
-              },
-            },
-          ],
-        },
-      ],
-      computeLabel: (schema) => {
-        const labels = {
-          entity: "Entity",
-          title: "Titel",
-          walking_time: "Laufweg (Minuten)",
-          group_mode: "Gruppierung",
-          max_per_group: "Max. pro Gruppe",
-          max_items_time: "Max. im Zeitmodus",
-          filter_lines: "Linienfilter",
-          filter_directions: "Richtungsfilter",
-        };
-        return labels[schema.name];
-      },
-      computeHelper: (schema) => {
-        const helpers = {
-          filter_lines: "Kommagetrennt, z. B. 179, M46",
-          filter_directions:
-            "Kommagetrennt, z. B. U Alt-Mariendorf, Buckow, Gerlinger Str.",
-        };
-        return helpers[schema.name];
-      },
-      assertConfig: (config) => {
-        if (!config.entity) {
-          throw new Error("Entity is required");
-        }
-      },
-    };
-  }
 }
+
+// ─── Editor ───────────────────────────────────────────────────────────────────
 
 class DBInfoscreenCardEditor extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+    this._config = {};
+    this._hass = null;
   }
-  
+
   setConfig(config) {
-    this._config = config;
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+  }
+
+  _schema() {
+    return [
+      {
+        name: "entity",
+        required: true,
+        selector: { entity: { domain: "sensor" } },
+      },
+      {
+        name: "title",
+        selector: { text: {} },
+      },
+      {
+        type: "grid",
+        name: "",
+        flatten: true,
+        schema: [
+          {
+            name: "walking_time",
+            selector: { number: { min: 0, max: 30, mode: "box", step: 1 } },
+          },
+          {
+            name: "group_mode",
+            selector: {
+              select: {
+                mode: "dropdown",
+                options: [
+                  { value: "line_direction", label: "Line + Direction" },
+                  { value: "time", label: "Chronological" },
+                ],
+              },
+            },
+          },
+          {
+            name: "max_per_group",
+            selector: { number: { min: 1, max: 20, mode: "box", step: 1 } },
+          },
+          {
+            name: "max_items_time",
+            selector: { number: { min: 1, max: 20, mode: "box", step: 1 } },
+          },
+        ],
+      },
+      {
+        type: "expandable",
+        name: "filters",
+        title: "Filter",
+        flatten: true,
+        schema: [
+          { name: "filter_lines", selector: { text: {} } },
+          { name: "filter_directions", selector: { text: {} } },
+        ],
+      },
+    ];
+  }
+
+  _computeLabel(schema) {
+    const labels = {
+      entity: "Entity",
+      title: "Titel",
+      walking_time: "Laufweg (Minuten)",
+      group_mode: "Gruppierung",
+      max_per_group: "Max. pro Gruppe",
+      max_items_time: "Max. im Zeitmodus",
+      filter_lines: "Linienfilter",
+      filter_directions: "Richtungsfilter",
+    };
+    return labels[schema.name] ?? schema.name;
+  }
+
+  _computeHelper(schema) {
+    const helpers = {
+      filter_lines: "Kommagetrennt, z. B. 179, M46",
+      filter_directions: "Kommagetrennt, z. B. U Alt-Mariendorf, Buckow",
+    };
+    return helpers[schema.name] ?? "";
+  }
+
+  _render() {
+    if (!this.shadowRoot) return;
+
+    // Reuse or create ha-form
+    let form = this.shadowRoot.querySelector("ha-form");
+    if (!form) {
+      form = document.createElement("ha-form");
+      form.addEventListener("value-changed", (e) => {
+        this._config = e.detail.value;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      });
+      this.shadowRoot.appendChild(form);
+    }
+
+    form.hass = this._hass;
+    form.data = this._config;
+    form.schema = this._schema();
+    form.computeLabel = (s) => this._computeLabel(s);
+    form.computeHelper = (s) => this._computeHelper(s);
+  }
+
+  connectedCallback() {
+    this._render();
   }
 }
+
+// ─── Registration ─────────────────────────────────────────────────────────────
 
 if (!customElements.get("db-infoscreen-card-editor")) {
   customElements.define("db-infoscreen-card-editor", DBInfoscreenCardEditor);
