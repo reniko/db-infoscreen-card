@@ -21,3 +21,13 @@ Custom Lovelace card for displaying DB Infoscreen departures in Home Assistant.
 2. Add resource:
 
 Settings → Dashboards → Resources
+   `/local/db-infoscreen-card.js`
+
+Type: `module`
+
+3. Use card:
+
+```yaml
+type: custom:db-infoscreen-card
+entity: sensor.db_infoscreen_tropfsteinweg_departures
+title: Tropfsteinweg
