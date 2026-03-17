@@ -1,0 +1,10 @@
+{
+  "name": "db-infoscreen-card",
+  "version": "0.1.0",
+  "description": "Home Assistant Lovelace card for DB Infoscreen departures",
+  "main": "dist/db-infoscreen-card.js",
+  "scripts": {},
+  "keywords": ["home-assistant", "lovelace", "custom-card"],
+  "author": "",
+  "license": "MIT"
+}
