@@ -286,6 +286,11 @@ class DBInfoscreenCard extends HTMLElement {
 }
 
 class DBInfoscreenCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+  }
+  
   setConfig(config) {
     this._config = config;
   }
