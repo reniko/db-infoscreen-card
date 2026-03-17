@@ -72,16 +72,16 @@ class DBInfoscreenCard extends HTMLElement {
       const depMins = Math.round((d.departure_timestamp - now) / 60);
       const leaveIn = depMins - this.config.walking_time;
 
-      let text = `${d.departure_current} 路 `;
+      let text = `${d.departure_current} · `;
       text += leaveIn >= 0 ? `in ${leaveIn} min los` : "nicht erreichbar";
 
       if (typeof d.delay === "number") {
-        if (d.delay > 0) text += ` 路 馃敶 +${d.delay}`;
-        else if (d.delay < 0) text += ` 路 馃煛 ${d.delay}`;
-        else text += ` 路 馃煝 0`;
+        if (d.delay > 0) text += ` · 🔴 +${d.delay}`;
+        else if (d.delay < 0) text += ` · 🟡 ${d.delay}`;
+        else text += ` · 🟢 0`;
       }
 
-      if (d.is_cancelled) text += " 路 Ausfall";
+      if (d.is_cancelled) text += " · Ausfall";
 
       if (leaveIn < 0 || d.is_cancelled) {
         text = `<span style="color:#888"><s>${text}</s></span>`;
@@ -93,7 +93,7 @@ class DBInfoscreenCard extends HTMLElement {
     if (this.config.group_mode === "time") {
       deps.slice(0, this.config.max_items_time).forEach((d) => {
         const row = document.createElement("div");
-        row.innerHTML = `<b>${d.train} 鈫?${d.direction}</b><br>${renderLine(d)}`;
+        row.innerHTML = `<b>${d.train} → ${d.direction}</b><br>${renderLine(d)}`;
         row.style.marginBottom = "6px";
         content.appendChild(row);
       });
@@ -110,7 +110,7 @@ class DBInfoscreenCard extends HTMLElement {
         const [train, dir] = key.split("|");
 
         const header = document.createElement("div");
-        header.innerHTML = `<b>${train} 鈫?${dir}</b>`;
+        header.innerHTML = `<b>${train} → ${dir}</b>`;
         if (index > 0) header.style.marginTop = "8px";
         content.appendChild(header);
 
