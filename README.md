@@ -51,7 +51,7 @@ Type: module
 
 ```yaml
 type: custom:db-infoscreen-card
-entity: sensor.db_infoscreen_tropfsteinweg_departures
+entity: sensor.db_infoscreen_xyz_departures
 title: Tropfsteinweg
 ```
 
@@ -78,7 +78,7 @@ title: Tropfsteinweg
 
 ```yaml
 type: custom:db-infoscreen-card
-entity: sensor.db_infoscreen_tropfsteinweg_departures
+entity: sensor.db_infoscreen_xyz_departures
 title: Tropfsteinweg
 ```
 
@@ -96,7 +96,7 @@ group_mode: time
 
 ```yaml
 filter_lines:
-  - "179"
+  - "123"
 ```
 
 ---
@@ -105,7 +105,7 @@ filter_lines:
 
 ```yaml
 filter_directions:
-  - "U Alt-Mariendorf"
+  - "ABC"
 ```
 
 ---
