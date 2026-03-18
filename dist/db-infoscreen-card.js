@@ -135,9 +135,9 @@ class DBInfoscreenCard extends HTMLElement {
       let delayHtml = "";
       if (c.show_delay && typeof d[c.attr_delay] === "number") {
         const delay = d[c.attr_delay];
-        if (delay > 0) delayHtml = `<span style="color:#e53935">${c.text_delay_prefix}${delay}🔴</span>`;
-        else if (delay < 0) delayHtml = `<span style="color:#f9a825">${delay}🟡</span>`;
-        else delayHtml = `<span style="color:#43a047">0🟢</span>`;
+        if (delay > 0) delayHtml = `<span style="color:#e53935;white-space:nowrap;">${c.text_delay_prefix}${delay} 🔴</span>`;
+        else if (delay < 0) delayHtml = `<span style="color:#f9a825;white-space:nowrap;">${delay} 🟡</span>`;
+        else delayHtml = `<span style="color:#43a047;white-space:nowrap;">0 🟢</span>`;
       }
 
       let cancelledHtml = "";
@@ -151,10 +151,10 @@ class DBInfoscreenCard extends HTMLElement {
       const dimmed = isUnreachable || isCancelled;
       const rowStyle = dimmed ? "color:#888;text-decoration:line-through;" : "";
 
-      return `<div style="display:grid;grid-template-columns:3.5em 1fr fit-content(4.5em);gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
-          <span style="font-variant-numeric:tabular-nums;white-space:nowrap;">${timeText}</span>
-          <span>${statusText}${cancelledHtml}</span>
-          <span style="white-space:nowrap;">${delayHtml}</span>
+      return `<div style="display:flex;align-items:baseline;gap:0.5em;padding:1px 0;${rowStyle}">
+          <span style="font-variant-numeric:tabular-nums;white-space:nowrap;min-width:3.2em;">${timeText}</span>
+          <span style="flex:1;">${statusText}${cancelledHtml}</span>
+          ${delayHtml ? `<span>${delayHtml}</span>` : ""}
         </div>`;
     };
 
