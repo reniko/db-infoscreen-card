@@ -135,9 +135,9 @@ class DBInfoscreenCard extends HTMLElement {
       let delayHtml = "";
       if (c.show_delay && typeof d[c.attr_delay] === "number") {
         const delay = d[c.attr_delay];
-        if (delay > 0) delayHtml = `<span style="color:#e53935">🔴 ${c.text_delay_prefix}${delay}</span>`;
-        else if (delay < 0) delayHtml = `<span style="color:#f9a825">🟡 ${delay}</span>`;
-        else delayHtml = `<span style="color:#43a047">🟢 0</span>`;
+        if (delay > 0) delayHtml = `<span style="color:#e53935">${c.text_delay_prefix}${delay}🔴</span>`;
+        else if (delay < 0) delayHtml = `<span style="color:#f9a825">${delay}🟡</span>`;
+        else delayHtml = `<span style="color:#43a047">0🟢</span>`;
       }
 
       let cancelledHtml = "";
