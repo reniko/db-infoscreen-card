@@ -13,7 +13,8 @@ class DBInfoscreenCard extends HTMLElement {
     this._titleEl.style.padding = "8px 12px 0 12px";
 
     this._contentEl.style.padding = "6px 12px 12px 12px";
-    this._contentEl.style.lineHeight = "1.25";
+    this._contentEl.style.lineHeight = "1.4";
+    this._contentEl.style.fontFamily = "inherit";
 
     this._card.appendChild(this._titleEl);
     this._card.appendChild(this._contentEl);
@@ -32,14 +33,39 @@ class DBInfoscreenCard extends HTMLElement {
     }
 
     this.config = {
+      // Core
       entity: "",
       title: "",
       walking_time: 5,
+      hide_before: null,           // hide departures with leaveIn < hide_before (null = show all)
       group_mode: "line_direction",
       max_per_group: 4,
       max_items_time: 8,
       filter_lines: "",
       filter_directions: "",
+
+      // Display toggles
+      show_delay: true,
+      show_cancelled: true,
+      show_unreachable: true,
+
+      // Attribute name mapping
+      attr_departures: "next_departures",
+      attr_train: "train",
+      attr_direction: "direction",
+      attr_departure_current: "departure_current",
+      attr_departure_timestamp: "departure_timestamp",
+      attr_delay: "delay",
+      attr_is_cancelled: "is_cancelled",
+
+      // Text labels
+      text_no_departures: "Keine Abfahrten",
+      text_entity_not_found: "Entity nicht gefunden",
+      text_reachable: "in {min} min los",
+      text_unreachable: "nicht erreichbar",
+      text_cancelled: "Ausfall",
+      text_delay_prefix: "+",
+
       ...config,
     };
 
@@ -54,76 +80,108 @@ class DBInfoscreenCard extends HTMLElement {
   render() {
     if (!this._hass || !this.config) return;
 
-    const state = this._hass.states[this.config.entity];
+    const c = this.config;
+    const state = this._hass.states[c.entity];
 
-    this._titleEl.style.display = this.config.title ? "" : "none";
-    this._titleEl.textContent = this.config.title || "";
+    this._titleEl.style.display = c.title ? "" : "none";
+    this._titleEl.textContent = c.title || "";
 
     if (!state) {
-      this._contentEl.textContent = `Entity nicht gefunden: ${this.config.entity}`;
+      this._contentEl.textContent = `${c.text_entity_not_found}: ${c.entity}`;
       return;
     }
 
-    const filterLines = this._normalizeList(this.config.filter_lines);
-    const filterDirections = this._normalizeList(this.config.filter_directions);
+    const filterLines = this._normalizeList(c.filter_lines);
+    const filterDirections = this._normalizeList(c.filter_directions);
 
-    const deps = (state.attributes.next_departures || []).filter((d) => {
-      const lineOk = !filterLines.length || filterLines.includes(String(d.train));
-      const dirOk =
-        !filterDirections.length || filterDirections.includes(String(d.direction));
-      return lineOk && dirOk;
+    const rawDeps = (state.attributes[c.attr_departures] || []);
+    const now = Date.now() / 1000;
+    const walkingTime = Number(c.walking_time || 0);
+    const hideBefore = (c.hide_before !== null && c.hide_before !== undefined && c.hide_before !== "")
+      ? Number(c.hide_before)
+      : null;
+
+    const deps = rawDeps.filter((d) => {
+      const lineOk = !filterLines.length || filterLines.includes(String(d[c.attr_train]));
+      const dirOk = !filterDirections.length || filterDirections.includes(String(d[c.attr_direction]));
+      if (!lineOk || !dirOk) return false;
+
+      if (hideBefore !== null) {
+        const depMins = Math.round((d[c.attr_departure_timestamp] - now) / 60);
+        const leaveIn = depMins - walkingTime;
+        if (leaveIn < hideBefore) return false;
+      }
+
+      return true;
     });
 
     if (!deps.length) {
-      this._contentEl.textContent = "Keine Abfahrten";
+      this._contentEl.textContent = c.text_no_departures;
       return;
     }
 
-    const now = Date.now() / 1000;
+    const renderRow = (d) => {
+      const depMins = Math.round((d[c.attr_departure_timestamp] - now) / 60);
+      const leaveIn = depMins - walkingTime;
+      const isCancelled = c.show_cancelled && d[c.attr_is_cancelled];
+      const isUnreachable = leaveIn < 0;
 
-    const renderLine = (d) => {
-      const depMins = Math.round((d.departure_timestamp - now) / 60);
-      const leaveIn = depMins - Number(this.config.walking_time || 0);
+      const timeText = d[c.attr_departure_current];
 
-      let text = `${d.departure_current} · `;
-      text += leaveIn >= 0 ? `in ${leaveIn} min los` : "nicht erreichbar";
+      let statusText = isUnreachable
+        ? c.text_unreachable
+        : c.text_reachable.replace("{min}", leaveIn);
 
-      if (typeof d.delay === "number") {
-        if (d.delay > 0) text += ` · 🔴 +${d.delay}`;
-        else if (d.delay < 0) text += ` · 🟡 ${d.delay}`;
-        else text += ` · 🟢 0`;
+      let delayHtml = "";
+      if (c.show_delay && typeof d[c.attr_delay] === "number") {
+        const delay = d[c.attr_delay];
+        if (delay > 0) delayHtml = `<span style="color:#e53935">🔴 ${c.text_delay_prefix}${delay}</span>`;
+        else if (delay < 0) delayHtml = `<span style="color:#f9a825">🟡 ${delay}</span>`;
+        else delayHtml = `<span style="color:#43a047">🟢 0</span>`;
       }
 
-      if (d.is_cancelled) text += " · Ausfall";
-
-      if (leaveIn < 0 || d.is_cancelled) {
-        text = `<span style="color:#888"><s>${text}</s></span>`;
+      let cancelledHtml = "";
+      if (isCancelled) {
+        cancelledHtml = `<span style="color:#e53935"> · ${c.text_cancelled}</span>`;
       }
 
-      return text;
+      const dimmed = (isUnreachable || isCancelled) && c.show_unreachable;
+      const rowStyle = dimmed
+        ? "color:#888;text-decoration:line-through;"
+        : "";
+
+      return `<div style="display:grid;grid-template-columns:3.5em 1fr auto;gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
+          <span style="font-variant-numeric:tabular-nums;white-space:nowrap;">${timeText}</span>
+          <span>${statusText}${cancelledHtml}</span>
+          <span style="white-space:nowrap;">${delayHtml}</span>
+        </div>`;
     };
 
     let html = "";
 
-    if (this.config.group_mode === "time") {
-      deps.slice(0, Number(this.config.max_items_time || 8)).forEach((d, i) => {
-        if (i > 0) html += `<div style="height:6px"></div>`;
-        html += `<div><b>${d.train} &rarr; ${d.direction}</b><br>${renderLine(d)}</div>`;
+    if (c.group_mode === "time") {
+      const items = deps.slice(0, Number(c.max_items_time || 8));
+      items.forEach((d, i) => {
+        if (i > 0) html += `<div style="height:4px"></div>`;
+        html += `<div style="margin-bottom:2px;">
+          <div style="font-weight:600;font-size:0.9em;">${d[c.attr_train]} &rarr; ${d[c.attr_direction]}</div>
+          ${renderRow(d)}
+        </div>`;
       });
     } else {
       const groups = {};
       deps.forEach((d) => {
-        const key = `${d.train}|${d.direction}`;
+        const key = `${d[c.attr_train]}|${d[c.attr_direction]}`;
         if (!groups[key]) groups[key] = [];
         groups[key].push(d);
       });
 
       Object.entries(groups).forEach(([key, arr], idx) => {
         const [train, dir] = key.split("|");
-        if (idx > 0) html += `<div style="height:8px"></div>`;
-        html += `<div><b>${train} &rarr; ${dir}</b></div>`;
-        arr.slice(0, Number(this.config.max_per_group || 4)).forEach((d) => {
-          html += `<div>${renderLine(d)}</div>`;
+        if (idx > 0) html += `<div style="height:6px"></div>`;
+        html += `<div style="font-weight:600;font-size:0.9em;margin-bottom:2px;">${train} &rarr; ${dir}</div>`;
+        arr.slice(0, Number(c.max_per_group || 4)).forEach((d) => {
+          html += renderRow(d);
         });
       });
     }
@@ -134,10 +192,7 @@ class DBInfoscreenCard extends HTMLElement {
   _normalizeList(value) {
     if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean);
     if (typeof value !== "string") return [];
-    return value
-      .split(",")
-      .map((v) => v.trim())
-      .filter(Boolean);
+    return value.split(",").map((v) => v.trim()).filter(Boolean);
   }
 
   getCardSize() {
@@ -160,13 +215,17 @@ class DBInfoscreenCard extends HTMLElement {
   static getStubConfig() {
     return {
       entity: "",
-      title: "Infoscreen",
+      title: "",
       walking_time: 5,
+      hide_before: null,
       group_mode: "line_direction",
       max_per_group: 4,
       max_items_time: 8,
       filter_lines: "",
       filter_directions: "",
+      show_delay: true,
+      show_cancelled: true,
+      show_unreachable: true,
     };
   }
 }
@@ -208,7 +267,11 @@ class DBInfoscreenCardEditor extends HTMLElement {
         schema: [
           {
             name: "walking_time",
-            selector: { number: { min: 0, max: 30, mode: "box", step: 1 } },
+            selector: { number: { min: 0, max: 60, mode: "box", step: 1 } },
+          },
+          {
+            name: "hide_before",
+            selector: { number: { min: -60, max: 60, mode: "box", step: 1 } },
           },
           {
             name: "group_mode",
@@ -233,6 +296,16 @@ class DBInfoscreenCardEditor extends HTMLElement {
         ],
       },
       {
+        type: "grid",
+        name: "",
+        flatten: true,
+        schema: [
+          { name: "show_delay", selector: { boolean: {} } },
+          { name: "show_cancelled", selector: { boolean: {} } },
+          { name: "show_unreachable", selector: { boolean: {} } },
+        ],
+      },
+      {
         type: "expandable",
         name: "filters",
         title: "Filter",
@@ -242,6 +315,35 @@ class DBInfoscreenCardEditor extends HTMLElement {
           { name: "filter_directions", selector: { text: {} } },
         ],
       },
+      {
+        type: "expandable",
+        name: "attributes",
+        title: "Attribut-Namen",
+        flatten: true,
+        schema: [
+          { name: "attr_departures", selector: { text: {} } },
+          { name: "attr_train", selector: { text: {} } },
+          { name: "attr_direction", selector: { text: {} } },
+          { name: "attr_departure_current", selector: { text: {} } },
+          { name: "attr_departure_timestamp", selector: { text: {} } },
+          { name: "attr_delay", selector: { text: {} } },
+          { name: "attr_is_cancelled", selector: { text: {} } },
+        ],
+      },
+      {
+        type: "expandable",
+        name: "labels",
+        title: "Texte",
+        flatten: true,
+        schema: [
+          { name: "text_no_departures", selector: { text: {} } },
+          { name: "text_entity_not_found", selector: { text: {} } },
+          { name: "text_reachable", selector: { text: {} } },
+          { name: "text_unreachable", selector: { text: {} } },
+          { name: "text_cancelled", selector: { text: {} } },
+          { name: "text_delay_prefix", selector: { text: {} } },
+        ],
+      },
     ];
   }
 
@@ -249,12 +351,29 @@ class DBInfoscreenCardEditor extends HTMLElement {
     const labels = {
       entity: "Entity",
       title: "Titel",
-      walking_time: "Laufweg (Minuten)",
+      walking_time: "Fußweg (Minuten)",
+      hide_before: "Ausblenden unter (Minuten)",
       group_mode: "Gruppierung",
       max_per_group: "Max. pro Gruppe",
       max_items_time: "Max. im Zeitmodus",
       filter_lines: "Linienfilter",
       filter_directions: "Richtungsfilter",
+      show_delay: "Verspätung anzeigen",
+      show_cancelled: "Ausfälle anzeigen",
+      show_unreachable: "Nicht erreichbare anzeigen",
+      attr_departures: "Attribut: Abfahrten",
+      attr_train: "Attribut: Linie",
+      attr_direction: "Attribut: Richtung",
+      attr_departure_current: "Attribut: Abfahrtszeit",
+      attr_departure_timestamp: "Attribut: Timestamp",
+      attr_delay: "Attribut: Verspätung",
+      attr_is_cancelled: "Attribut: Ausfall",
+      text_no_departures: "Text: Keine Abfahrten",
+      text_entity_not_found: "Text: Entity nicht gefunden",
+      text_reachable: "Text: Erreichbar",
+      text_unreachable: "Text: Nicht erreichbar",
+      text_cancelled: "Text: Ausfall",
+      text_delay_prefix: "Text: Verspätungs-Prefix",
     };
     return labels[schema.name] ?? schema.name;
   }
@@ -262,7 +381,9 @@ class DBInfoscreenCardEditor extends HTMLElement {
   _computeHelper(schema) {
     const helpers = {
       filter_lines: "Kommagetrennt, z. B. 179, M46",
-      filter_directions: "Kommagetrennt, z. B. U Alt-Mariendorf, Buckow",
+      filter_directions: "Kommagetrennt, z. B. Hauptbahnhof, Endstation",
+      hide_before: "Abfahrten mit weniger als N Minuten Puffer ausblenden. Leer = alle anzeigen.",
+      text_reachable: "{min} wird durch die verbleibenden Minuten ersetzt",
     };
     return helpers[schema.name] ?? "";
   }
@@ -270,7 +391,6 @@ class DBInfoscreenCardEditor extends HTMLElement {
   _render() {
     if (!this.shadowRoot) return;
 
-    // Reuse or create ha-form
     let form = this.shadowRoot.querySelector("ha-form");
     if (!form) {
       form = document.createElement("ha-form");
@@ -313,6 +433,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "db-infoscreen-card",
   name: "DB Infoscreen Card",
-  description: "Zeigt Abfahrten aus ha-db_infoscreen an.",
+  description: "Displays departures from the ha-db_infoscreen integration.",
   preview: false,
 });
