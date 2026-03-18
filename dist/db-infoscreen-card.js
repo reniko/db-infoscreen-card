@@ -151,7 +151,7 @@ class DBInfoscreenCard extends HTMLElement {
       const dimmed = isUnreachable || isCancelled;
       const rowStyle = dimmed ? "color:#888;text-decoration:line-through;" : "";
 
-      return `<div style="display:grid;grid-template-columns:3.5em 1fr 4.5em;gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
+      return `<div style="display:grid;grid-template-columns:3.5em 1fr fit-content(4.5em);gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
           <span style="font-variant-numeric:tabular-nums;white-space:nowrap;">${timeText}</span>
           <span>${statusText}${cancelledHtml}</span>
           <span style="white-space:nowrap;">${delayHtml}</span>
@@ -207,14 +207,23 @@ class DBInfoscreenCard extends HTMLElement {
   getCardSize() {
     if (!this.config) return 3;
     const c = this.config;
-    // HA card size unit = 1 row in the grid = ~56px
-    // Each departure row ≈ 22px, group header ≈ 18px, card padding ≈ 24px
-    // Simple: 1 unit per ~2.5 departure rows
     const isTime = c.group_mode === "time";
-    const count = isTime
-      ? Number(c.max_items_time || 8)
-      : Number(c.max_per_group || 4);
-    return Math.max(2, Math.ceil(count / 2.5) + 1);
+    // HA size unit ≈ 50px
+    // time mode: each item has a header line + data line (~40px total)
+    // line_direction: 1 header + max_per_group rows per group, typically 1-2 groups
+    const rowPx = 22;
+    const headerPx = 20;
+    const paddingPx = 28;
+    let estimatedPx;
+    if (isTime) {
+      const count = Number(c.max_items_time || 8);
+      estimatedPx = count * (rowPx + headerPx) + paddingPx;
+    } else {
+      const perGroup = Number(c.max_per_group || 4);
+      // assume ~2 groups visible on average
+      estimatedPx = 2 * (headerPx + perGroup * rowPx) + paddingPx;
+    }
+    return Math.max(2, Math.round(estimatedPx / 50));
   }
 
   getGridOptions() {
