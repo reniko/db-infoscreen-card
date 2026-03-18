@@ -151,7 +151,7 @@ class DBInfoscreenCard extends HTMLElement {
       const dimmed = isUnreachable || isCancelled;
       const rowStyle = dimmed ? "color:#888;text-decoration:line-through;" : "";
 
-      return `<div style="display:grid;grid-template-columns:3.5em 1fr min-content;gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
+      return `<div style="display:grid;grid-template-columns:3.5em 1fr 4.5em;gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
           <span style="font-variant-numeric:tabular-nums;white-space:nowrap;">${timeText}</span>
           <span>${statusText}${cancelledHtml}</span>
           <span style="white-space:nowrap;">${delayHtml}</span>
@@ -207,17 +207,14 @@ class DBInfoscreenCard extends HTMLElement {
   getCardSize() {
     if (!this.config) return 3;
     const c = this.config;
-    // Each row is ~24px, card padding ~20px, title ~30px
-    // line-height 1.4 * font ~14px = ~20px per row
-    // group headers add ~1 extra row each
+    // HA card size unit = 1 row in the grid = ~56px
+    // Each departure row ≈ 22px, group header ≈ 18px, card padding ≈ 24px
+    // Simple: 1 unit per ~2.5 departure rows
     const isTime = c.group_mode === "time";
-    const entryCount = isTime
+    const count = isTime
       ? Number(c.max_items_time || 8)
       : Number(c.max_per_group || 4);
-    const headerRows = isTime ? entryCount : Math.ceil(entryCount / 2) + 1;
-    const totalRows = entryCount + headerRows;
-    // HA card size unit ≈ 50px; each row ≈ 22px
-    return Math.max(2, Math.round((totalRows * 22 + 40) / 50));
+    return Math.max(2, Math.ceil(count / 2.5) + 1);
   }
 
   getGridOptions() {
