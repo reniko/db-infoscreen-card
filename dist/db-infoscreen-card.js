@@ -151,10 +151,10 @@ class DBInfoscreenCard extends HTMLElement {
       const dimmed = isUnreachable || isCancelled;
       const rowStyle = dimmed ? "color:#888;text-decoration:line-through;" : "";
 
-      return `<div style="display:grid;grid-template-columns:3.5em 1fr auto;gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
+      return `<div style="display:grid;grid-template-columns:3.5em 1fr min-content;gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
           <span style="font-variant-numeric:tabular-nums;white-space:nowrap;">${timeText}</span>
           <span>${statusText}${cancelledHtml}</span>
-          <span style="white-space:nowrap;justify-self:start;">${delayHtml}</span>
+          <span style="white-space:nowrap;">${delayHtml}</span>
         </div>`;
     };
 
@@ -162,12 +162,16 @@ class DBInfoscreenCard extends HTMLElement {
 
     if (c.group_mode === "time") {
       const items = deps.slice(0, Number(c.max_items_time || 8));
-      items.forEach((d, i) => {
-        if (i > 0) html += `<div style="height:4px"></div>`;
+      let visibleCount = 0;
+      items.forEach((d) => {
+        const row = renderRow(d);
+        if (!row) return;
+        if (visibleCount > 0) html += `<div style="height:4px"></div>`;
         html += `<div style="margin-bottom:2px;">
           <div style="font-weight:600;font-size:0.9em;">${d[c.attr_train]} &rarr; ${d[c.attr_direction]}</div>
-          ${renderRow(d)}
+          ${row}
         </div>`;
+        visibleCount++;
       });
     } else {
       const groups = {};
@@ -177,13 +181,17 @@ class DBInfoscreenCard extends HTMLElement {
         groups[key].push(d);
       });
 
-      Object.entries(groups).forEach(([key, arr], idx) => {
+      let groupIdx = 0;
+      Object.entries(groups).forEach(([key, arr]) => {
         const [train, dir] = key.split("|");
-        if (idx > 0) html += `<div style="height:6px"></div>`;
+        const rows = arr.slice(0, Number(c.max_per_group || 4))
+          .map(d => renderRow(d))
+          .filter(r => r);
+        if (!rows.length) return; // skip group if all entries hidden
+        if (groupIdx > 0) html += `<div style="height:6px"></div>`;
         html += `<div style="font-weight:600;font-size:0.9em;margin-bottom:2px;">${train} &rarr; ${dir}</div>`;
-        arr.slice(0, Number(c.max_per_group || 4)).forEach((d) => {
-          html += renderRow(d);
-        });
+        html += rows.join("");
+        groupIdx++;
       });
     }
 
@@ -199,13 +207,17 @@ class DBInfoscreenCard extends HTMLElement {
   getCardSize() {
     if (!this.config) return 3;
     const c = this.config;
+    // Each row is ~24px, card padding ~20px, title ~30px
+    // line-height 1.4 * font ~14px = ~20px per row
+    // group headers add ~1 extra row each
     const isTime = c.group_mode === "time";
-    const count = isTime
+    const entryCount = isTime
       ? Number(c.max_items_time || 8)
       : Number(c.max_per_group || 4);
-    // ~1 row per entry + 1 for header per group (rough estimate)
-    const rows = isTime ? count : count + 2;
-    return Math.max(2, Math.ceil(rows * 0.6));
+    const headerRows = isTime ? entryCount : Math.ceil(entryCount / 2) + 1;
+    const totalRows = entryCount + headerRows;
+    // HA card size unit ≈ 50px; each row ≈ 22px
+    return Math.max(2, Math.round((totalRows * 22 + 40) / 50));
   }
 
   getGridOptions() {
