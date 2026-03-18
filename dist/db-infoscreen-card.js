@@ -145,15 +145,16 @@ class DBInfoscreenCard extends HTMLElement {
         cancelledHtml = `<span style="color:#e53935"> · ${c.text_cancelled}</span>`;
       }
 
-      const dimmed = (isUnreachable || isCancelled) && c.show_unreachable;
-      const rowStyle = dimmed
-        ? "color:#888;text-decoration:line-through;"
-        : "";
+      // show_unreachable: false = hide completely; true = show struck-through
+      if (!c.show_unreachable && isUnreachable) return "";
+
+      const dimmed = isUnreachable || isCancelled;
+      const rowStyle = dimmed ? "color:#888;text-decoration:line-through;" : "";
 
       return `<div style="display:grid;grid-template-columns:3.5em 1fr auto;gap:0 0.6em;align-items:baseline;padding:1px 0;${rowStyle}">
           <span style="font-variant-numeric:tabular-nums;white-space:nowrap;">${timeText}</span>
           <span>${statusText}${cancelledHtml}</span>
-          <span style="white-space:nowrap;">${delayHtml}</span>
+          <span style="white-space:nowrap;justify-self:start;">${delayHtml}</span>
         </div>`;
     };
 
@@ -196,7 +197,15 @@ class DBInfoscreenCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 4;
+    if (!this.config) return 3;
+    const c = this.config;
+    const isTime = c.group_mode === "time";
+    const count = isTime
+      ? Number(c.max_items_time || 8)
+      : Number(c.max_per_group || 4);
+    // ~1 row per entry + 1 for header per group (rough estimate)
+    const rows = isTime ? count : count + 2;
+    return Math.max(2, Math.ceil(rows * 0.6));
   }
 
   getGridOptions() {
@@ -350,40 +359,40 @@ class DBInfoscreenCardEditor extends HTMLElement {
   _computeLabel(schema) {
     const labels = {
       entity: "Entity",
-      title: "Titel",
-      walking_time: "Fußweg (Minuten)",
-      hide_before: "Ausblenden unter (Minuten)",
-      group_mode: "Gruppierung",
-      max_per_group: "Max. pro Gruppe",
-      max_items_time: "Max. im Zeitmodus",
-      filter_lines: "Linienfilter",
-      filter_directions: "Richtungsfilter",
-      show_delay: "Verspätung anzeigen",
-      show_cancelled: "Ausfälle anzeigen",
-      show_unreachable: "Nicht erreichbare anzeigen",
-      attr_departures: "Attribut: Abfahrten",
-      attr_train: "Attribut: Linie",
-      attr_direction: "Attribut: Richtung",
-      attr_departure_current: "Attribut: Abfahrtszeit",
-      attr_departure_timestamp: "Attribut: Timestamp",
-      attr_delay: "Attribut: Verspätung",
-      attr_is_cancelled: "Attribut: Ausfall",
-      text_no_departures: "Text: Keine Abfahrten",
-      text_entity_not_found: "Text: Entity nicht gefunden",
-      text_reachable: "Text: Erreichbar",
-      text_unreachable: "Text: Nicht erreichbar",
-      text_cancelled: "Text: Ausfall",
-      text_delay_prefix: "Text: Verspätungs-Prefix",
+      title: "Title",
+      walking_time: "Walking time (minutes)",
+      hide_before: "Hide before (minutes buffer)",
+      group_mode: "Group mode",
+      max_per_group: "Max per group",
+      max_items_time: "Max in time mode",
+      filter_lines: "Filter lines",
+      filter_directions: "Filter directions",
+      show_delay: "Show delay",
+      show_cancelled: "Show cancelled",
+      show_unreachable: "Show unreachable (struck-through)",
+      attr_departures: "Attr: departures list",
+      attr_train: "Attr: line/train",
+      attr_direction: "Attr: direction",
+      attr_departure_current: "Attr: departure time",
+      attr_departure_timestamp: "Attr: timestamp",
+      attr_delay: "Attr: delay",
+      attr_is_cancelled: "Attr: is cancelled",
+      text_no_departures: "Text: no departures",
+      text_entity_not_found: "Text: entity not found",
+      text_reachable: "Text: reachable ({min} = minutes)",
+      text_unreachable: "Text: unreachable",
+      text_cancelled: "Text: cancelled",
+      text_delay_prefix: "Text: delay prefix",
     };
     return labels[schema.name] ?? schema.name;
   }
 
   _computeHelper(schema) {
     const helpers = {
-      filter_lines: "Kommagetrennt, z. B. 179, M46",
-      filter_directions: "Kommagetrennt, z. B. Hauptbahnhof, Endstation",
-      hide_before: "Abfahrten mit weniger als N Minuten Puffer ausblenden. Leer = alle anzeigen.",
-      text_reachable: "{min} wird durch die verbleibenden Minuten ersetzt",
+      filter_lines: "Comma-separated, e.g. 179, M46",
+      filter_directions: "Comma-separated, e.g. Central Station, Airport",
+      hide_before: "Hide entries where buffer (depTime − walkingTime) is below this value. Empty = show all.",
+      text_reachable: "{min} is replaced with the remaining minutes",
     };
     return helpers[schema.name] ?? "";
   }
