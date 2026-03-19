@@ -25,6 +25,14 @@ class DBInfoscreenCard extends HTMLElement {
       this.appendChild(this._card);
     }
     if (this._hass && this.config) this.render();
+    clearInterval(this._renderInterval);
+    this._renderInterval = setInterval(() => {
+      if (this._hass && this.config) this.render();
+    }, 30000);
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._renderInterval);
   }
 
   setConfig(config) {
@@ -48,6 +56,7 @@ class DBInfoscreenCard extends HTMLElement {
       show_delay: true,
       show_cancelled: true,
       show_unreachable: true,
+      show_delay_icons: true,
 
       // Attribute name mapping
       attr_departures: "next_departures",
@@ -73,8 +82,13 @@ class DBInfoscreenCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const entity = this.config?.entity;
+    const oldState = this._hass?.states[entity];
+    const newState = hass.states[entity];
     this._hass = hass;
-    this.render();
+    if (oldState !== newState) {
+      this.render();
+    }
   }
 
   render() {
@@ -126,7 +140,19 @@ class DBInfoscreenCard extends HTMLElement {
       const isCancelled = c.show_cancelled && d[c.attr_is_cancelled];
       const isUnreachable = leaveIn < 0;
 
-      const timeText = d[c.attr_departure_current];
+      // departure_current can be "HH:MM" or ISO "2026-03-19T00:03:00Z" — normalize to HH:MM
+      const rawTime = d[c.attr_departure_current];
+      let timeText;
+      if (String(rawTime).includes("T")) {
+        const parsed = new Date(rawTime);
+        if (!isNaN(parsed.getTime())) {
+          timeText = parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        } else {
+          timeText = String(rawTime).slice(11, 16);
+        }
+      } else {
+        timeText = rawTime;
+      }
 
       let statusText = isUnreachable
         ? c.text_unreachable
@@ -135,9 +161,10 @@ class DBInfoscreenCard extends HTMLElement {
       let delayHtml = "";
       if (c.show_delay && typeof d[c.attr_delay] === "number") {
         const delay = d[c.attr_delay];
-        if (delay > 0) delayHtml = `<span style="color:#e53935;white-space:nowrap;">${c.text_delay_prefix}${delay} 🔴</span>`;
-        else if (delay < 0) delayHtml = `<span style="color:#f9a825;white-space:nowrap;">${delay} 🟡</span>`;
-        else delayHtml = `<span style="color:#43a047;white-space:nowrap;">0 🟢</span>`;
+        const icons = c.show_delay_icons !== false;
+        if (delay > 0) delayHtml = `<span style="color:#e53935;white-space:nowrap;">${c.text_delay_prefix}${delay}${icons ? " 🔴" : ""}</span>`;
+        else if (delay < 0) delayHtml = `<span style="color:#f9a825;white-space:nowrap;">${delay}${icons ? " 🟡" : ""}</span>`;
+        else delayHtml = `<span style="color:#43a047;white-space:nowrap;">0${icons ? " 🟢" : ""}</span>`;
       }
 
       let cancelledHtml = "";
@@ -253,6 +280,7 @@ class DBInfoscreenCard extends HTMLElement {
       show_delay: true,
       show_cancelled: true,
       show_unreachable: true,
+      show_delay_icons: true,
     };
   }
 }
@@ -330,6 +358,7 @@ class DBInfoscreenCardEditor extends HTMLElement {
           { name: "show_delay", selector: { boolean: {} } },
           { name: "show_cancelled", selector: { boolean: {} } },
           { name: "show_unreachable", selector: { boolean: {} } },
+          { name: "show_delay_icons", selector: { boolean: {} } },
         ],
       },
       {
@@ -388,6 +417,7 @@ class DBInfoscreenCardEditor extends HTMLElement {
       show_delay: "Show delay",
       show_cancelled: "Show cancelled",
       show_unreachable: "Show unreachable (struck-through)",
+      show_delay_icons: "Show delay icons (🟢 🟡 🔴)",
       attr_departures: "Attr: departures list",
       attr_train: "Attr: line/train",
       attr_direction: "Attr: direction",

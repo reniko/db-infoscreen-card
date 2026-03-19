@@ -65,6 +65,7 @@ Designed for dashboards, tablets and wall panels.
 | `show_delay` | `true` | Show delay indicator |
 | `show_cancelled` | `true` | Show cancelled trips (struck through) |
 | `show_unreachable` | `true` | Show unreachable trips (struck through) |
+| `show_delay_icons` | `true` | Show colored emoji icons next to delay values (🟢 🟡 🔴) |
 
 ### Attribute Names
 
